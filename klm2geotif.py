@@ -38,13 +38,12 @@ def parse_kml(kml_file):
 def create_geotiff(png_file, output_file, north, south, east, west, view_bound_scale):
     gdal.UseExceptions()
     
-    
     # Calculate adjusted bounding coordinates based on viewBoundScale
     width = east - west
     height = north - south
     east = west + width * view_bound_scale
     south = north - height * view_bound_scale
-   
+    
     # Open PNG file
     ds = gdal.Open(png_file)
     
@@ -57,19 +56,41 @@ def create_geotiff(png_file, output_file, north, south, east, west, view_bound_s
     
     # Create GeoTIFF
     driver = gdal.GetDriverByName("GTiff")
-    dst_ds = driver.Create(output_file, ds.RasterXSize, ds.RasterYSize, 3, gdal.GDT_Byte)
+    
+    # Determine the number of bands based on the PNG file
+    num_bands = ds.RasterCount if ds else 3  # Default to 3 bands (RGB)
+    
+    dst_ds = driver.Create(output_file, ds.RasterXSize, ds.RasterYSize, num_bands, gdal.GDT_Byte)
     dst_ds.SetGeoTransform(geotransform)
     dst_ds.SetProjection(srs.ExportToWkt())
     
+    # Set nodata value for RGB (0, 0, 0) and alpha band if present
+    for i in range(1, num_bands + 1):
+        band = dst_ds.GetRasterBand(i)
+        if i < 4:  # For RGB bands
+            band.SetNoDataValue(0)
+        else:  # For alpha band if present
+            try:
+                band.SetNoDataValue(0)
+            except RuntimeError:
+                pass  # Skip setting nodata value if band doesn't exist
+    
     # Write PNG data to GeoTIFF
-    for i in range(1, 4):
-        band = ds.GetRasterBand(i)
-        data = band.ReadAsArray()
-        dst_ds.GetRasterBand(i).WriteArray(data)
+    if ds:
+        for i in range(1, min(4, num_bands) + 1):
+            band = ds.GetRasterBand(i)
+            data = band.ReadAsArray()
+            dst_ds.GetRasterBand(i).WriteArray(data)
+    
+    # Set alpha band to fully opaque
+    if num_bands >= 4:
+        alpha_band = dst_ds.GetRasterBand(4)
+        alpha_band.Fill(255)
     
     # Close datasets
     ds = None
     dst_ds = None
+
 
 if __name__ == "__main__":
     kml_file = "C:/Users/misch/IOW Marine Geophysik Dropbox/Mischa Schönke/4_Projekte/2024_Osterolz_DroneData/airship-areas2024/airship-areas2024/Areas_background/doc.kml"
@@ -87,5 +108,5 @@ if __name__ == "__main__":
         png_file = os.path.join(os.path.dirname(kml_file), icon_href)
         output_file = f"{os.path.splitext(png_file)[0]}.tif"
         
-        create_geotiff(png_file, output_file, north, south, east, west, 0.75)
+        create_geotiff(png_file, output_file, north, south, east, west, 1)
         print(f"GeoTIFF saved: {output_file}")
