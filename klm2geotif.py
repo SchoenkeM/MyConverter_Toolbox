@@ -93,7 +93,7 @@ def create_geotiff(png_file, output_file, north, south, east, west, view_bound_s
 
 
 if __name__ == "__main__":
-    kml_file = "C:/Users/misch/IOW Marine Geophysik Dropbox/Mischa Schönke/4_Projekte/2024_Osterolz_DroneData/airship-areas2024/airship-areas2024/Areas_background/doc.kml"
+    kml_file = "Enter path to file here"
 
     ground_overlays = parse_kml(kml_file)
     
